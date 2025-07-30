@@ -4,10 +4,9 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import { glob } from 'glob';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// ESM module setup for __dirname if needed
+// import { fileURLToPath } from 'url';
+// const __filename = fileURLToPath(import.meta.url);
 
 class UnifiedConverter {
     constructor() {
@@ -78,7 +77,7 @@ class UnifiedConverter {
     // TypeScript to JavaScript conversion
     convertTypeScriptFiles() {
         try {
-            const result = execSync(`npx tsc -p "${this.tsconfigPath}" --noEmitOnError false --skipLibCheck`, { stdio: 'pipe', encoding: 'utf8' });
+            execSync(`npx tsc -p "${this.tsconfigPath}" --noEmitOnError false --skipLibCheck`, { stdio: 'pipe', encoding: 'utf8' });
             console.log('✅ TypeScript compilation completed successfully');
             return true;
         } catch (err) {
@@ -122,7 +121,7 @@ class UnifiedConverter {
             .replace(/interface\s+\w+\s*\{[^}]*\}/gs, '')
             .replace(/\s+as\s+const/g, '')
             .replace(/\s+satisfies\s+[^;,)\]}]+/g, '')
-            .replace(/!(?=\s*[;,\)\]}])/g, '')
+            .replace(/!(?=\s*[;,)\]}])/g, '')
             .replace(/^\s*\n/gm, '');
     }
 
@@ -176,8 +175,8 @@ class UnifiedConverter {
                     let content = fs.readFileSync(file, 'utf8');
 
                     content = content.replace(
-                        /resolvePageComponent\(`\.?\/pages\/\$\{name\}\.tsx`,\s*import\.meta\.glob\('\.\/pages\/\*\*\/\*\.tsx'\)\)/g,
-                        "resolvePageComponent(`./pages/\${name}.jsx`, import.meta.glob('./pages/**/*.jsx'))",
+                        /resolvePageComponent\(`\.?\/pages\/${name}\.tsx`,\s*import\.meta\.glob\('\.\/pages\/\*\*\/\*\.tsx'\)\)/g,
+                        "resolvePageComponent(`./pages/${name}.jsx`, import.meta.glob('./pages/**/*.jsx'))",
                     );
 
                     fs.writeFileSync(file, content);
@@ -360,10 +359,13 @@ class UnifiedConverter {
         console.log(`📁 Output: ${this.outputDir}`);
 
         // Validation
-        if (!this.checkDependencies()) process.exit(1);
+        if (!this.checkDependencies()) {
+            console.error('❌ Dependencies check failed');
+            return;
+        }
         if (!fs.existsSync(this.sourceDir)) {
             console.error('❌ Source directory not found');
-            process.exit(1);
+            return;
         }
 
         // Setup - Clean output directory completely
@@ -380,7 +382,10 @@ class UnifiedConverter {
 
         // Convert TypeScript files
         console.log('\n🔄 Converting TypeScript files...');
-        if (!this.convertTypeScriptFiles()) process.exit(1);
+        if (!this.convertTypeScriptFiles()) {
+            console.error('❌ TypeScript conversion failed');
+            return;
+        }
 
         // Process JavaScript files
         console.log('\n🧹 Processing JavaScript files...');
@@ -486,6 +491,8 @@ Our React JSX starter kit provides a robust, modern starting point for building 
 Inertia allows you to build modern, single-page React applications using classic server-side routing and controllers. This lets you enjoy the frontend power of React combined with the incredible backend productivity of Laravel and lightning-fast Vite compilation.
 
 This React starter kit utilizes React 19, **JavaScript/JSX**, Tailwind, and the [shadcn/ui](https://ui.shadcn.com) and [radix-ui](https://www.radix-ui.com) component libraries.
+
+> **Note:** This template is automatically generated from [aliziodev/react-jsx-starter-kit-dev](https://github.com/aliziodev/react-jsx-starter-kit-dev) based on the original Laravel React starter kit repository. The conversion process transforms TypeScript files to JavaScript/JSX for broader accessibility.
 
 ## Usage
 

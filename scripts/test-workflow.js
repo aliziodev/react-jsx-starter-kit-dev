@@ -3,6 +3,7 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import process from 'node:process';
 
 class WorkflowTester {
     constructor() {
@@ -82,7 +83,7 @@ class WorkflowTester {
                 } else {
                     this.log(`${check.name}: OK`, 'success');
                 }
-            } catch (error) {
+            } catch {
                 this.log(`${check.name}: Not available`, 'error');
                 allPassed = false;
             }
@@ -213,7 +214,7 @@ class WorkflowTester {
             if (fileCount < 50) {
                 this.log(`Warning: Low number of converted files (${fileCount})`, 'warning');
             }
-        } catch (error) {
+        } catch {
             // Fallback for Windows
             try {
                 const files = this.countFilesRecursive(path.resolve('output/resources/js'), ['.js', '.jsx']);
@@ -222,7 +223,7 @@ class WorkflowTester {
                 if (files < 50) {
                     this.log(`Warning: Low number of converted files (${files})`, 'warning');
                 }
-            } catch (fallbackError) {
+            } catch {
                 this.log('Could not count converted files', 'warning');
             }
         }
@@ -243,7 +244,7 @@ class WorkflowTester {
             } else {
                 this.log('TypeScript dependencies still present in package.json', 'warning');
             }
-        } catch (error) {
+        } catch {
             this.log('Could not verify package.json changes', 'warning');
         }
 
@@ -301,7 +302,7 @@ class WorkflowTester {
         }
 
         // Test Node.js dependencies
-        const depResult = await this.runCommand('npm list --depth=0', 'Checking dependencies');
+        await this.runCommand('npm list --depth=0', 'Checking dependencies');
         
         return true;
     }
@@ -366,17 +367,19 @@ class WorkflowTester {
         this.log('=====================================', 'info');
         if (allTestsPassed) {
             this.log('🎉 All tests passed! Workflow is ready for deployment.', 'success');
-            process.exit(0);
         } else {
             this.log('❌ Some tests failed. Please review the issues above.', 'error');
-            process.exit(1);
         }
+        
+        return allTestsPassed;
     }
 }
 
 // Run the test suite
 const tester = new WorkflowTester();
-tester.run().catch(error => {
+tester.run().then(success => {
+    process.exit(success ? 0 : 1);
+}).catch(error => {
     console.error('❌ Test suite failed:', error);
     process.exit(1);
 });

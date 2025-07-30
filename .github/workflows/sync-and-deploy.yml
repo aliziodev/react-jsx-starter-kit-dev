@@ -9,11 +9,11 @@ on:
         required: false
         default: false
         type: boolean
-  
+
   # Scheduled sync (daily at 2 AM UTC)
   schedule:
     - cron: '0 2 * * *'
-  
+
   # Trigger on push to main (for development changes)
   push:
     branches: [ main ]
@@ -34,34 +34,34 @@ jobs:
     outputs:
       has_changes: ${{ steps.check_changes.outputs.has_changes }}
       commit_sha: ${{ steps.sync.outputs.commit_sha }}
-    
+
     steps:
     - name: Checkout development repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Configure Git
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-    
+
     - name: Add upstream remote
       run: |
         git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git
         git fetch upstream
-    
+
     - name: Check for upstream changes
       id: check_changes
       run: |
         # Get latest commit from upstream main
         UPSTREAM_SHA=$(git rev-parse upstream/main)
         CURRENT_SHA=$(git rev-parse HEAD)
-        
+
         echo "Upstream SHA: $UPSTREAM_SHA"
         echo "Current SHA: $CURRENT_SHA"
-        
+
         # Check if there are new commits
         if [ "$UPSTREAM_SHA" != "$CURRENT_SHA" ] || [ "${{ github.event.inputs.force_sync }}" == "true" ]; then
           echo "has_changes=true" >> $GITHUB_OUTPUT
@@ -70,36 +70,36 @@ jobs:
           echo "has_changes=false" >> $GITHUB_OUTPUT
           echo "ℹ️  No new changes from upstream"
         fi
-    
+
     - name: Sync with upstream
       id: sync
       if: steps.check_changes.outputs.has_changes == 'true'
       run: |
         echo "🔄 Syncing with upstream..."
-        
+
         # Create a new branch for the sync
         SYNC_BRANCH="sync-upstream-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $SYNC_BRANCH
-        
+
         # Merge upstream changes
         git merge upstream/main --no-edit || {
           echo "❌ Merge conflicts detected. Manual intervention required."
           git merge --abort
           exit 1
         }
-        
+
         # Push the sync branch
         git push origin $SYNC_BRANCH
-        
+
         # Merge to main
         git checkout main
         git merge $SYNC_BRANCH --no-edit
         git push origin main
-        
+
         # Clean up sync branch
         git branch -d $SYNC_BRANCH
         git push origin --delete $SYNC_BRANCH
-        
+
         COMMIT_SHA=$(git rev-parse HEAD)
         echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
         echo "✅ Successfully synced with upstream"
@@ -110,7 +110,7 @@ jobs:
     if: needs.sync-upstream.outputs.has_changes == 'true' || github.event_name == 'push'
     outputs:
       conversion_success: ${{ steps.convert.outputs.success }}
-    
+
     steps:
     - name: Checkout updated repository
       uses: actions/checkout@v4
@@ -118,47 +118,47 @@ jobs:
         ref: main
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-    
+
     - name: Install dependencies
       run: |
         # Update lock file if package.json has changed
         npm install
         # Use clean install for consistent builds
         npm ci
-    
+
     - name: Run TypeScript to JSX conversion
       id: convert
       run: |
         echo "🚀 Starting TypeScript to JSX conversion..."
-        
+
         # Check if conversion script exists
         if [ ! -f "scripts/run-conversion.js" ]; then
           echo "❌ Conversion script not found: scripts/run-conversion.js"
           exit 1
         fi
-        
+
         # Run the conversion
         node scripts/run-conversion.js
-        
+
         echo "success=true" >> $GITHUB_OUTPUT
         echo "✅ Conversion completed successfully"
-    
+
     - name: Verify conversion output
       run: |
         echo "📊 Verifying conversion output..."
-        
+
         # Check if output directory exists
         if [ ! -d "output" ]; then
           echo "❌ Output directory not found"
           exit 1
         fi
-        
+
         # Check essential files
         REQUIRED_FILES=(
           "output/resources/js/app.jsx"
@@ -167,24 +167,24 @@ jobs:
           "output/resources/views/app.blade.php"
           "output/package.json"
         )
-        
+
         for file in "${REQUIRED_FILES[@]}"; do
           if [ ! -f "$file" ]; then
             echo "❌ Required file not found: $file"
             exit 1
           fi
         done
-        
+
         # Count converted files
         JSX_COUNT=$(find output/resources/js -name "*.jsx" -o -name "*.js" | wc -l)
         echo "📁 Found $JSX_COUNT JavaScript/JSX files in output"
-        
+
         if [ $JSX_COUNT -lt 50 ]; then
           echo "⚠️  Warning: Low number of converted files ($JSX_COUNT)"
         fi
-        
+
         echo "✅ Conversion output verified successfully"
-    
+
     - name: Upload conversion artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -196,7 +196,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [sync-upstream, convert-jsx]
     if: needs.convert-jsx.outputs.conversion_success == 'true'
-    
+
     steps:
     - name: Checkout development repository
       uses: actions/checkout@v4
@@ -204,23 +204,23 @@ jobs:
         ref: main
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Download conversion artifacts
       uses: actions/download-artifact@v4
       with:
         name: jsx-conversion-output
         path: output/
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-    
+
     - name: Configure Git for deployment
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-    
+
     - name: Clone template repository
       env:
         TEMPLATE_TOKEN: ${{ secrets.TEMPLATE_REPO_TOKEN }}
@@ -235,40 +235,40 @@ jobs:
         cd template-repo
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-    
+
     - name: Deploy to template repository
       run: |
         echo "🚀 Deploying to template repository..."
-        
+
         cd template-repo
-        
+
         # Remove all files except .git
         find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-        
+
         # Copy all files from output
         cp -r ../output/* .
-        
+
         # Add all changes
         git add .
-        
+
         # Check if there are changes to commit
         if git diff --staged --quiet; then
           echo "ℹ️  No changes to deploy"
           exit 0
         fi
-        
+
         # Create commit message
-        COMMIT_MSG="Auto-deploy JSX template from upstream sync"
+        COMMIT_MSG="Auto Deploy JSX template"
         if [ "${{ needs.sync-upstream.outputs.commit_sha }}" != "" ]; then
-          COMMIT_MSG="$COMMIT_MSG\n\nSource commit: ${{ needs.sync-upstream.outputs.commit_sha }}"
+          COMMIT_MSG="$COMMIT_MSG (${{ needs.sync-upstream.outputs.commit_sha }})"
         fi
-        
+
         # Commit and push
         git commit -m "$COMMIT_MSG"
         git push origin main
-        
+
         echo "✅ Successfully deployed to template repository"
-    
+
     - name: Create deployment summary
       run: |
         echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
@@ -293,19 +293,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [sync-upstream, convert-jsx, deploy-template]
     if: always()
-    
+
     steps:
     - name: Workflow completion status
       run: |
         echo "## 📋 Workflow Completion Status" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         if [ "${{ needs.sync-upstream.result }}" == "success" ]; then
           echo "- ✅ **Upstream Sync**: Success" >> $GITHUB_STEP_SUMMARY
         else
           echo "- ❌ **Upstream Sync**: Failed" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
         if [ "${{ needs.convert-jsx.result }}" == "success" ]; then
           echo "- ✅ **JSX Conversion**: Success" >> $GITHUB_STEP_SUMMARY
         elif [ "${{ needs.convert-jsx.result }}" == "skipped" ]; then
@@ -313,7 +313,7 @@ jobs:
         else
           echo "- ❌ **JSX Conversion**: Failed" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
         if [ "${{ needs.deploy-template.result }}" == "success" ]; then
           echo "- ✅ **Template Deployment**: Success" >> $GITHUB_STEP_SUMMARY
         elif [ "${{ needs.deploy-template.result }}" == "skipped" ]; then
@@ -321,6 +321,6 @@ jobs:
         else
           echo "- ❌ **Template Deployment**: Failed" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Workflow completed at**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
