@@ -22,3 +22,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Output directory for JSX template conversion
+/output
+/workflow-test-report.json
