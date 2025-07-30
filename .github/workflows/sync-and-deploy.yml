@@ -223,10 +223,15 @@ jobs:
     
     - name: Clone template repository
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TEMPLATE_TOKEN: ${{ secrets.TEMPLATE_REPO_TOKEN }}
       run: |
         echo "📥 Cloning template repository..."
-        git clone https://x-access-token:$GITHUB_TOKEN@github.com/${{ env.TEMPLATE_REPO }}.git template-repo
+        if [ -z "$TEMPLATE_TOKEN" ]; then
+          echo "❌ TEMPLATE_REPO_TOKEN secret not found"
+          echo "Please add a Personal Access Token with repo permissions as TEMPLATE_REPO_TOKEN secret"
+          exit 1
+        fi
+        git clone https://x-access-token:$TEMPLATE_TOKEN@github.com/${{ env.TEMPLATE_REPO }}.git template-repo
         cd template-repo
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
