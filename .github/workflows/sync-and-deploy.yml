@@ -126,7 +126,11 @@ jobs:
         cache: 'npm'
     
     - name: Install dependencies
-      run: npm ci
+      run: |
+        # Update lock file if package.json has changed
+        npm install
+        # Use clean install for consistent builds
+        npm ci
     
     - name: Run TypeScript to JSX conversion
       id: convert
