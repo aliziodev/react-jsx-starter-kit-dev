@@ -68,14 +68,11 @@ jobs:
           rm -rf /tmp/release-archive
       
       - name: Create GitHub Release
-        id: create-release
         if: steps.check-release.outputs.exists == 'false'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.upstream-release.outputs.tag }}
-          release_name: "Laravel React JSX Starter Kit ${{ steps.upstream-release.outputs.tag }}"
+          name: "Laravel React JSX Starter Kit ${{ steps.upstream-release.outputs.tag }}"
           body: |
             # Laravel React JSX Starter Kit ${{ steps.upstream-release.outputs.tag }}
             
@@ -102,30 +99,11 @@ jobs:
             - TypeScript dependencies removed
             - ESLint configuration updated for JavaScript/JSX
             - Vite configuration updated for JSX
+          files: |
+            react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz
+            react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip
           draft: false
           prerelease: false
-      
-      - name: Upload release assets
-        if: steps.check-release.outputs.exists == 'false'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: ./react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz
-          asset_name: react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz
-          asset_content_type: application/gzip
-      
-      - name: Upload release assets (ZIP)
-        if: steps.check-release.outputs.exists == 'false'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: ./react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip
-          asset_name: react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip
-          asset_content_type: application/zip
       
 
       
