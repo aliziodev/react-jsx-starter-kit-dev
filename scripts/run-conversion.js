@@ -84,8 +84,6 @@ class UnifiedConverter {
             const outputExists = fs.existsSync(this.jsOutputDir) && fs.readdirSync(this.jsOutputDir).length > 0;
 
             if (outputExists) {
-                console.log('⚠️  TypeScript compilation had errors but files were generated successfully');
-                console.log('📝 This is normal when converting from TypeScript to JavaScript');
                 return true;
             }
 
@@ -112,19 +110,6 @@ class UnifiedConverter {
         }
     }
 
-    // Content processing utilities
-    cleanupTypeScriptSyntax(content) {
-        return content
-            .replace(/import\s+type\s+[^;]+;/g, '')
-            .replace(/import\s*\{[^}]*type[^}]*\}\s*from\s*['"][^'"]+['"]/g, '')
-            .replace(/(?:export\s+)?type\s+\w+\s*=?[^;]*;/g, '')
-            .replace(/interface\s+\w+\s*\{[^}]*\}/gs, '')
-            .replace(/\s+as\s+const/g, '')
-            .replace(/\s+satisfies\s+[^;,)\]}]+/g, '')
-            .replace(/!(?=\s*[;,)\]}])/g, '')
-            .replace(/^\s*\n/gm, '');
-    }
-
     addProperSpacing(content) {
         return content
             .replace(/(import[^;]+;)(\n)(?!import)/g, '$1\n\n')
@@ -142,14 +127,80 @@ class UnifiedConverter {
             .replace(/(import[^\n]+\n)\n\n(?=import)/g, '$1');
     }
 
+    cleanupTypeScriptSyntax(content) {
+        let result = content;
+        
+        // Remove type-only imports (import type ...)
+        result = result.replace(/import\s+type\s+[^;]+;\n/g, '');
+        
+        // Remove type imports from regular imports but keep the import if other items remain
+        result = result.replace(/import\s*\{([^}]*?)\btype\s+[^,}]+,?([^}]*?)\}\s*from\s*['"][^'"]+['"]/g, (match, before, after) => {
+            const cleanBefore = before.replace(/,\s*$/, '').trim();
+            const cleanAfter = after.replace(/^\s*,/, '').trim();
+            const combined = [cleanBefore, cleanAfter].filter(part => part).join(', ');
+            
+            if (combined) {
+                return match.replace(/\{[^}]*\}/, `{ ${combined} }`);
+            } else {
+                return ''; // Remove entire import if no non-type imports remain
+            }
+        });
+        
+        // Remove type annotations from function parameters
+        result = result.replace(/(\w+):\s*[A-Z][\w<>[\]|&\s]*(?=\s*[,)])/g, '$1');
+        
+        // Remove return type annotations
+        result = result.replace(/\):\s*[A-Z][\w<>[\]|&\s]*(?=\s*\{)/g, ')');
+        
+        // Remove interface/type definitions
+        result = result.replace(/^\s*interface\s+\w+\s*\{[^}]*\}\s*\n?/gm, '');
+        result = result.replace(/^\s*type\s+\w+\s*=\s*[^;]+;\s*\n?/gm, '');
+        
+        // Remove generic type parameters
+        result = result.replace(/<[A-Z][\w<>[\]|&\s]*>/g, '');
+        
+        // Remove 'as' type assertions
+        result = result.replace(/\s+as\s+[A-Z][\w<>[\]|&\s]*/g, '');
+        
+        // Clean up empty import lines
+        result = result.replace(/^\s*import\s*\{\s*\}\s*from\s*['"][^'"]+['"'];?\n?/gm, '');
+        
+        // Ensure there's an empty line after the last import before export
+        const lines = result.split('\n');
+        const processedLines = [];
+        let lastImportIndex = -1;
+        
+        // Find the last import line
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim().startsWith('import ')) {
+                lastImportIndex = i;
+            }
+        }
+        
+        // Process lines and add empty line after last import if needed
+        for (let i = 0; i < lines.length; i++) {
+            processedLines.push(lines[i]);
+            
+            // Add empty line after last import if next line is not empty and not an import
+            if (i === lastImportIndex && i + 1 < lines.length) {
+                const nextLine = lines[i + 1].trim();
+                if (nextLine && !nextLine.startsWith('import ')) {
+                    processedLines.push('');
+                }
+            }
+        }
+        
+        return processedLines.join('\n');
+    }
+
     // File processing
     async processJavaScriptFiles() {
         const files = await glob(`${this.jsOutputDir}/**/*.{js,jsx}`);
         for (const file of files) {
             try {
                 const original = fs.readFileSync(file, 'utf8');
+                // Only clean up TypeScript syntax, preserve original formatting
                 let processed = this.cleanupTypeScriptSyntax(original);
-                processed = this.addProperSpacing(processed);
 
                 if (original !== processed) {
                     fs.writeFileSync(file, processed);
@@ -174,15 +225,12 @@ class UnifiedConverter {
                 try {
                     let content = fs.readFileSync(file, 'utf8');
 
-                    content = content.replace(
-                        /resolvePageComponent\(`\.?\/pages\/${name}\.tsx`,\s*import\.meta\.glob\('\.\/pages\/\*\*\/\*\.tsx'\)\)/g,
-                        "resolvePageComponent(`./pages/${name}.jsx`, import.meta.glob('./pages/**/*.jsx'))",
-                    );
+                    content = content.replace(/\.tsx/g, '.jsx');
 
                     fs.writeFileSync(file, content);
-                    console.log(`🔄 Updated file references in: ${path.basename(file)}`);
+                    console.log(`   🔄 Updated file references in: ${path.basename(file)}`);
                 } catch (err) {
-                    console.error(`❌ Error updating references in ${file}: ${err.message}`);
+                    console.error(`   ❌ Error updating references in ${file}: ${err.message}`);
                 }
             }
         }
@@ -234,27 +282,6 @@ class UnifiedConverter {
         fs.writeFileSync(outputFile, content);
         console.log(`✅ Converted: app.blade.php → views/${path.basename(outputFile)}`);
         return true;
-    }
-
-    // Formatting
-    async formatWithPrettier() {
-        try {
-            console.log('🎨 Formatting files with Prettier...');
-
-            try {
-                execSync('npx prettier --version', { stdio: 'pipe' });
-            } catch {
-                console.log('⚠️  Prettier not found, skipping formatting');
-                return;
-            }
-
-            const formatCommand = `npx prettier --write "${this.jsOutputDir}/**/*.{js,jsx}"`;
-            execSync(formatCommand, { stdio: 'pipe' });
-
-            console.log('✅ All files formatted with Prettier');
-        } catch (err) {
-            console.error(`❌ Error formatting with Prettier: ${err.message}`);
-        }
     }
 
     // Statistics and cleanup
@@ -391,7 +418,6 @@ class UnifiedConverter {
         console.log('\n🧹 Processing JavaScript files...');
         await this.processJavaScriptFiles();
         await this.updateFileReferences();
-        await this.formatWithPrettier();
 
         // Replace resources/js in output with converted JSX files
         console.log('\n🔄 Replacing resources/js with converted JSX files...');
