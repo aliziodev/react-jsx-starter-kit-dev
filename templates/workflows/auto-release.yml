@@ -50,9 +50,22 @@ jobs:
       - name: Create release archive
         if: steps.check-release.outputs.exists == 'false'
         run: |
-          # Create archive from current repository (already converted JSX)
-          tar -czf react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz --exclude='.git' --exclude='.github' .
-          zip -r react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip . -x '.git/*' '.github/*'
+          # Create temporary directory for archive
+          mkdir -p /tmp/release-archive
+          
+          # Copy files to temporary directory, excluding .git and .github
+          rsync -av --exclude='.git' --exclude='.github' --exclude='*.tar.gz' --exclude='*.zip' . /tmp/release-archive/
+          
+          # Create archives from temporary directory
+          cd /tmp/release-archive
+          tar -czf $GITHUB_WORKSPACE/react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz .
+          zip -r $GITHUB_WORKSPACE/react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip .
+          
+          # Return to workspace
+          cd $GITHUB_WORKSPACE
+          
+          # Clean up temporary directory
+          rm -rf /tmp/release-archive
       
       - name: Create GitHub Release
         if: steps.check-release.outputs.exists == 'false'
