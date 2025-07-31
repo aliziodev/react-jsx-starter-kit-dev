@@ -220,7 +220,7 @@ class UnifiedConverter {
     copyProjectStructure() {
         console.log('\n📁 Copying project structure...');
 
-        const excludeDirs = ['output', 'node_modules', 'scripts', 'vendor', 'storage/logs', '.git'];
+        const excludeDirs = ['output', 'node_modules', 'scripts', 'vendor', 'templates', 'storage/logs', '.git'];
         const excludeFiles = ['composer.lock', '.env', 'workflow-test-report.json'];
 
         this.copyProjectFiles('.', this.outputDir, excludeDirs, excludeFiles);
@@ -247,7 +247,7 @@ class UnifiedConverter {
         // Copy auto-release.yml from templates to output
         const templateWorkflowSource = path.resolve('templates/workflows/auto-release.yml');
         const templateWorkflowTarget = path.join(workflowsTarget, 'auto-release.yml');
-        
+
         if (fs.existsSync(templateWorkflowSource)) {
             this.ensureDirectory(workflowsTarget);
             fs.copyFileSync(templateWorkflowSource, templateWorkflowTarget);
@@ -302,13 +302,13 @@ class UnifiedConverter {
 
     updateOutputEslintConfig() {
         const outputEslintConfig = path.join(this.outputDir, 'eslint.config.js');
-        
+
         if (fs.existsSync(outputEslintConfig)) {
             let content = fs.readFileSync(outputEslintConfig, 'utf8');
-            
+
             // Remove any 'output' related entries from ignores array
             content = content.replace(
-                /ignores:\s*\[([^\]]*)]/, 
+                /ignores:\s*\[([^\]]*)]/,
                 (match, ignoresList) => {
                     // Split the ignores list and filter out any 'output' related entries
                     let newIgnores = ignoresList
@@ -316,18 +316,18 @@ class UnifiedConverter {
                         .map(item => item.trim())
                         .filter(item => {
                             // Remove empty items and any item containing 'output'
-                            return item && 
-                                   !item.includes("'output'") && 
+                            return item &&
+                                   !item.includes("'output'") &&
                                    !item.includes('"output"') &&
                                    !item.includes("'output/") &&
                                    !item.includes('"output/');
                         })
                         .join(', ');
-                    
+
                     return `ignores: [${newIgnores}]`;
                 }
             );
-            
+
             fs.writeFileSync(outputEslintConfig, content);
             console.log('   ✅ Updated: eslint.config.js (removed output from ignores)');
         }
@@ -358,7 +358,7 @@ class UnifiedConverter {
 
         // Copy entire project structure first
         this.copyProjectStructure();
-        
+
         // Update eslint.config.js in output to remove 'output' from ignores
         this.updateOutputEslintConfig();
 
@@ -482,10 +482,10 @@ class UnifiedConverter {
         const outputComposerJson = path.join(this.outputDir, 'composer.json');
         if (fs.existsSync(outputComposerJson)) {
             const composerJson = JSON.parse(fs.readFileSync(outputComposerJson, 'utf8'));
-            
+
             // Update name for JSX template
             composerJson.name = 'aliziodev/react-jsx-starter-kit';
-            
+
             fs.writeFileSync(outputComposerJson, JSON.stringify(composerJson, null, 4));
             console.log('   ✅ Updated: composer.json for JSX template');
         }
@@ -494,10 +494,10 @@ class UnifiedConverter {
         const outputComponentsJson = path.join(this.outputDir, 'components.json');
         if (fs.existsSync(outputComponentsJson)) {
             const componentsJson = JSON.parse(fs.readFileSync(outputComponentsJson, 'utf8'));
-            
+
             // Update tsx to false for JSX template
             componentsJson.tsx = false;
-            
+
             fs.writeFileSync(outputComponentsJson, JSON.stringify(componentsJson, null, 4));
             console.log('   ✅ Updated: components.json for JSX template');
         }
