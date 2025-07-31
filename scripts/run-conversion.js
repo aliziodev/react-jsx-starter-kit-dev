@@ -221,11 +221,11 @@ class UnifiedConverter {
         console.log('\n📁 Copying project structure...');
 
         const excludeDirs = ['output', 'node_modules', 'scripts', 'vendor', 'storage/logs', '.git'];
-        const excludeFiles = ['composer.lock', 'package-lock.json', '.env', 'workflow-test-report.json'];
+        const excludeFiles = ['composer.lock', '.env', 'workflow-test-report.json'];
 
         this.copyProjectFiles('.', this.outputDir, excludeDirs, excludeFiles);
 
-        // Handle .github/workflows specially - only copy lint.yml and tests.yml
+        // Handle .github/workflows specially - copy specific workflows
         const workflowsSource = path.resolve('.github/workflows');
         const workflowsTarget = path.join(this.outputDir, '.github/workflows');
 
@@ -242,6 +242,16 @@ class UnifiedConverter {
                     console.log(`   ✅ Copied: .github/workflows/${workflow}`);
                 }
             }
+        }
+
+        // Copy auto-release.yml from templates to output
+        const templateWorkflowSource = path.resolve('templates/workflows/auto-release.yml');
+        const templateWorkflowTarget = path.join(workflowsTarget, 'auto-release.yml');
+        
+        if (fs.existsSync(templateWorkflowSource)) {
+            this.ensureDirectory(workflowsTarget);
+            fs.copyFileSync(templateWorkflowSource, templateWorkflowTarget);
+            console.log('   ✅ Copied: .github/workflows/auto-release.yml (from template)');
         }
 
         console.log('   ✅ Project structure copied');

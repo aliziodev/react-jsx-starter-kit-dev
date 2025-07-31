@@ -1,0 +1,168 @@
+name: Auto Release
+
+on:
+  schedule:
+    # Check for new releases every day at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Get latest release from laravel/react-starter-kit
+        id: upstream-release
+        run: |
+          # Get the latest release tag from laravel/react-starter-kit
+          LATEST_TAG=$(curl -s https://api.github.com/repos/laravel/react-starter-kit/releases/latest | jq -r '.tag_name')
+          echo "Latest upstream tag: $LATEST_TAG"
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
+          # Get release notes
+          RELEASE_NOTES=$(curl -s https://api.github.com/repos/laravel/react-starter-kit/releases/latest | jq -r '.body')
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Check if release already exists
+        id: check-release
+        run: |
+          # Check if we already have this release
+          if git tag -l | grep -q "^${{ steps.upstream-release.outputs.tag }}$"; then
+            echo "Release ${{ steps.upstream-release.outputs.tag }} already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release ${{ steps.upstream-release.outputs.tag }} does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Setup Node.js
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        if: steps.check-release.outputs.exists == 'false'
+        run: npm ci
+      
+      - name: Run conversion script
+        if: steps.check-release.outputs.exists == 'false'
+        run: node scripts/run-conversion.js
+      
+      - name: Upload conversion artifact
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsx-conversion-output-${{ steps.upstream-release.outputs.tag }}
+          path: output/
+          include-hidden-files: true
+          retention-days: 1
+      
+      - name: Download conversion artifact
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: jsx-conversion-output-${{ steps.upstream-release.outputs.tag }}
+          path: release-output/
+      
+      - name: Create release archive
+        if: steps.check-release.outputs.exists == 'false'
+        run: |
+          cd release-output
+          tar -czf ../react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz .
+          zip -r ../react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip .
+          cd ..
+      
+      - name: Create GitHub Release
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.upstream-release.outputs.tag }}
+          release_name: "Laravel React JSX Starter Kit ${{ steps.upstream-release.outputs.tag }}"
+          body: |
+            # Laravel React JSX Starter Kit ${{ steps.upstream-release.outputs.tag }}
+            
+            This release is automatically generated based on [laravel/react-starter-kit ${{ steps.upstream-release.outputs.tag }}](https://github.com/laravel/react-starter-kit/releases/tag/${{ steps.upstream-release.outputs.tag }}).
+            
+            ## What's Changed
+            
+            This JSX version includes all features from the original TypeScript starter kit, converted to JavaScript/JSX for broader accessibility.
+            
+            ## Original Release Notes
+            
+            ${{ steps.upstream-release.outputs.RELEASE_NOTES }}
+            
+            ## Installation
+            
+            ```bash
+            laravel new my-app --using=aliziodev/react-jsx-starter-kit
+            ```
+            
+            ## Differences from TypeScript Version
+            
+            - All `.tsx` files converted to `.jsx`
+            - All `.ts` files converted to `.js`
+            - TypeScript dependencies removed
+            - ESLint configuration updated for JavaScript/JSX
+            - Vite configuration updated for JSX
+          draft: false
+          prerelease: false
+      
+      - name: Upload release assets
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz
+          asset_name: react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz
+          asset_content_type: application/gzip
+      
+      - name: Upload release assets (ZIP)
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip
+          asset_name: react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip
+          asset_content_type: application/zip
+      
+      - name: Trigger sync and deploy
+        if: steps.check-release.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sync-and-deploy.yml',
+              ref: 'main'
+            });
+      
+      - name: Summary
+        run: |
+          if [ "${{ steps.check-release.outputs.exists }}" == "true" ]; then
+            echo "✅ Release ${{ steps.upstream-release.outputs.tag }} already exists - no action needed"
+          else
+            echo "🚀 Created new release ${{ steps.upstream-release.outputs.tag }} based on upstream"
+            echo "📦 Release assets uploaded"
+            echo "🔄 Sync and deploy workflow triggered"
+          fi
