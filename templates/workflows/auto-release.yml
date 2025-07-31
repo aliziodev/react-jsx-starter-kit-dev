@@ -68,6 +68,7 @@ jobs:
           rm -rf /tmp/release-archive
       
       - name: Create GitHub Release
+        id: create-release
         if: steps.check-release.outputs.exists == 'false'
         uses: actions/create-release@v1
         env:
