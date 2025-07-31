@@ -428,6 +428,18 @@ class UnifiedConverter {
             console.log('   ✅ Updated: composer.json for JSX template');
         }
 
+        // Update components.json in output
+        const outputComponentsJson = path.join(this.outputDir, 'components.json');
+        if (fs.existsSync(outputComponentsJson)) {
+            const componentsJson = JSON.parse(fs.readFileSync(outputComponentsJson, 'utf8'));
+            
+            // Update tsx to false for JSX template
+            componentsJson.tsx = false;
+            
+            fs.writeFileSync(outputComponentsJson, JSON.stringify(componentsJson, null, 4));
+            console.log('   ✅ Updated: components.json for JSX template');
+        }
+
         // Update README.md in output for template
         const outputReadme = path.join(this.outputDir, 'README.md');
         if (fs.existsSync(outputReadme)) {

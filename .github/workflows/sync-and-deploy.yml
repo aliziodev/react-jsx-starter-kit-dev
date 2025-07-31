@@ -185,12 +185,22 @@ jobs:
 
         echo "✅ Conversion output verified successfully"
 
+    - name: Debug output directory before upload
+      run: |
+        echo "📋 Listing output directory contents:"
+        ls -la output/
+        echo "📋 Checking for hidden files:"
+        find output/ -name ".*" -type f
+        echo "📋 Total file count:"
+        find output/ -type f | wc -l
+
     - name: Upload conversion artifacts
       uses: actions/upload-artifact@v4
       with:
         name: jsx-conversion-output
         path: output/
         retention-days: 7
+        include-hidden-files: true
 
   deploy-template:
     runs-on: ubuntu-latest
@@ -210,6 +220,17 @@ jobs:
       with:
         name: jsx-conversion-output
         path: output/
+
+    - name: Debug downloaded artifacts
+      run: |
+        echo "📋 Listing downloaded artifacts:"
+        ls -la output/
+        echo "📋 Checking for .env.example:"
+        ls -la output/.env.example || echo "❌ .env.example not found"
+        echo "📋 Checking for .github directory:"
+        ls -la output/.github/ || echo "❌ .github directory not found"
+        echo "📋 Total downloaded files:"
+        find output/ -type f | wc -l
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -247,6 +268,17 @@ jobs:
 
         # Copy all files from output
         cp -r ../output/* .
+        
+        # Copy hidden files explicitly
+        cp -r ../output/.* . 2>/dev/null || true
+
+        # Verify files were copied
+        echo "📋 Verifying copied files:"
+        ls -la
+        echo "📋 Checking for .env.example:"
+        ls -la .env.example || echo "❌ .env.example not found after copy"
+        echo "📋 Checking for .github directory:"
+        ls -la .github/ || echo "❌ .github directory not found after copy"
 
         # Add all changes
         git add .
