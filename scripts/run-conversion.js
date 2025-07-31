@@ -416,6 +416,18 @@ class UnifiedConverter {
             console.log('   ✅ Updated: package.json for JSX template');
         }
 
+        // Update composer.json in output
+        const outputComposerJson = path.join(this.outputDir, 'composer.json');
+        if (fs.existsSync(outputComposerJson)) {
+            const composerJson = JSON.parse(fs.readFileSync(outputComposerJson, 'utf8'));
+            
+            // Update name for JSX template
+            composerJson.name = 'aliziodev/react-jsx-starter-kit';
+            
+            fs.writeFileSync(outputComposerJson, JSON.stringify(composerJson, null, 4));
+            console.log('   ✅ Updated: composer.json for JSX template');
+        }
+
         // Update README.md in output for template
         const outputReadme = path.join(this.outputDir, 'README.md');
         if (fs.existsSync(outputReadme)) {
