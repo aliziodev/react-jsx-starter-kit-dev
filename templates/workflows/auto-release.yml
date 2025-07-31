@@ -47,44 +47,12 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
       
-      - name: Setup Node.js
-        if: steps.check-release.outputs.exists == 'false'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        if: steps.check-release.outputs.exists == 'false'
-        run: npm ci
-      
-      - name: Run conversion script
-        if: steps.check-release.outputs.exists == 'false'
-        run: node scripts/run-conversion.js
-      
-      - name: Upload conversion artifact
-        if: steps.check-release.outputs.exists == 'false'
-        uses: actions/upload-artifact@v4
-        with:
-          name: jsx-conversion-output-${{ steps.upstream-release.outputs.tag }}
-          path: output/
-          include-hidden-files: true
-          retention-days: 1
-      
-      - name: Download conversion artifact
-        if: steps.check-release.outputs.exists == 'false'
-        uses: actions/download-artifact@v4
-        with:
-          name: jsx-conversion-output-${{ steps.upstream-release.outputs.tag }}
-          path: release-output/
-      
       - name: Create release archive
         if: steps.check-release.outputs.exists == 'false'
         run: |
-          cd release-output
-          tar -czf ../react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz .
-          zip -r ../react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip .
-          cd ..
+          # Create archive from current repository (already converted JSX)
+          tar -czf react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.tar.gz --exclude='.git' --exclude='.github' .
+          zip -r react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip . -x '.git/*' '.github/*'
       
       - name: Create GitHub Release
         if: steps.check-release.outputs.exists == 'false'
@@ -145,17 +113,7 @@ jobs:
           asset_name: react-jsx-starter-kit-${{ steps.upstream-release.outputs.tag }}.zip
           asset_content_type: application/zip
       
-      - name: Trigger sync and deploy
-        if: steps.check-release.outputs.exists == 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'sync-and-deploy.yml',
-              ref: 'main'
-            });
+
       
       - name: Summary
         run: |
@@ -164,5 +122,5 @@ jobs:
           else
             echo "🚀 Created new release ${{ steps.upstream-release.outputs.tag }} based on upstream"
             echo "📦 Release assets uploaded"
-            echo "🔄 Sync and deploy workflow triggered"
+            echo "✅ JSX template ready for use"
           fi
