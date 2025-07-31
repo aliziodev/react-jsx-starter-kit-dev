@@ -110,103 +110,14 @@ class UnifiedConverter {
         }
     }
 
-    addProperSpacing(content) {
-        return content
-            .replace(/(import[^;]+;)(\n)(?!import)/g, '$1\n\n')
-            .replace(/(\n)(?=const\s+\w+\s*=)/g, '\n\n')
-            .replace(/(\n)(?=(?:export\s+)?function\s+\w+)/g, '\n\n')
-            .replace(/(\n)(?=export\s+default\s+function)/g, '\n\n')
-            .replace(/(\n)(?=export\s+function\s+\w+)/g, '\n\n')
-            .replace(/(\n)(?=export\s+(?:const|function)\s+\w+\s*=)/g, '\n\n')
-            .replace(/(;|\})\n(\s+)(?=const\s+\w+\s*=)/g, '$1\n\n$2')
-            .replace(/(;|\})\n(\s+)(?=\w+\s*=\s*\()/g, '$1\n\n$2')
-            .replace(/(;|\})\n(\s+)(?=return\s+)/g, '$1\n\n$2')
-            .replace(/(\n)(\s*)(?=return\s+)/g, '\n\n$2')
-            .replace(/\n{3,}/g, '\n\n')
-            .replace(/^\n+/, '')
-            .replace(/(import[^\n]+\n)\n\n(?=import)/g, '$1');
-    }
-
-    cleanupTypeScriptSyntax(content) {
-        let result = content;
-        
-        // Remove type-only imports (import type ...)
-        result = result.replace(/import\s+type\s+[^;]+;\n/g, '');
-        
-        // Remove type imports from regular imports but keep the import if other items remain
-        result = result.replace(/import\s*\{([^}]*?)\btype\s+[^,}]+,?([^}]*?)\}\s*from\s*['"][^'"]+['"]/g, (match, before, after) => {
-            const cleanBefore = before.replace(/,\s*$/, '').trim();
-            const cleanAfter = after.replace(/^\s*,/, '').trim();
-            const combined = [cleanBefore, cleanAfter].filter(part => part).join(', ');
-            
-            if (combined) {
-                return match.replace(/\{[^}]*\}/, `{ ${combined} }`);
-            } else {
-                return ''; // Remove entire import if no non-type imports remain
-            }
-        });
-        
-        // Remove type annotations from function parameters
-        result = result.replace(/(\w+):\s*[A-Z][\w<>[\]|&\s]*(?=\s*[,)])/g, '$1');
-        
-        // Remove return type annotations
-        result = result.replace(/\):\s*[A-Z][\w<>[\]|&\s]*(?=\s*\{)/g, ')');
-        
-        // Remove interface/type definitions
-        result = result.replace(/^\s*interface\s+\w+\s*\{[^}]*\}\s*\n?/gm, '');
-        result = result.replace(/^\s*type\s+\w+\s*=\s*[^;]+;\s*\n?/gm, '');
-        
-        // Remove generic type parameters
-        result = result.replace(/<[A-Z][\w<>[\]|&\s]*>/g, '');
-        
-        // Remove 'as' type assertions
-        result = result.replace(/\s+as\s+[A-Z][\w<>[\]|&\s]*/g, '');
-        
-        // Clean up empty import lines
-        result = result.replace(/^\s*import\s*\{\s*\}\s*from\s*['"][^'"]+['"'];?\n?/gm, '');
-        
-        // Ensure there's an empty line after the last import before export
-        const lines = result.split('\n');
-        const processedLines = [];
-        let lastImportIndex = -1;
-        
-        // Find the last import line
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].trim().startsWith('import ')) {
-                lastImportIndex = i;
-            }
-        }
-        
-        // Process lines and add empty line after last import if needed
-        for (let i = 0; i < lines.length; i++) {
-            processedLines.push(lines[i]);
-            
-            // Add empty line after last import if next line is not empty and not an import
-            if (i === lastImportIndex && i + 1 < lines.length) {
-                const nextLine = lines[i + 1].trim();
-                if (nextLine && !nextLine.startsWith('import ')) {
-                    processedLines.push('');
-                }
-            }
-        }
-        
-        return processedLines.join('\n');
-    }
-
     // File processing
     async processJavaScriptFiles() {
         const files = await glob(`${this.jsOutputDir}/**/*.{js,jsx}`);
         for (const file of files) {
             try {
                 const original = fs.readFileSync(file, 'utf8');
-                // Only clean up TypeScript syntax, preserve original formatting
-                let processed = this.cleanupTypeScriptSyntax(original);
 
-                if (original !== processed) {
-                    fs.writeFileSync(file, processed);
-                }
-
-                if (file.endsWith('.js') && processed.match(/<\w[\s>/]/)) {
+                if (file.endsWith('.js') && original.match(/<\w[\s>/]/)) {
                     const newName = file.replace(/\.js$/, '.jsx');
                     fs.renameSync(file, newName);
                     console.log(`📝 Renamed: ${path.basename(file)} → ${path.basename(newName)}`);
