@@ -290,6 +290,39 @@ class UnifiedConverter {
         }
     }
 
+    updateOutputEslintConfig() {
+        const outputEslintConfig = path.join(this.outputDir, 'eslint.config.js');
+        
+        if (fs.existsSync(outputEslintConfig)) {
+            let content = fs.readFileSync(outputEslintConfig, 'utf8');
+            
+            // Remove any 'output' related entries from ignores array
+            content = content.replace(
+                /ignores:\s*\[([^\]]*)]/, 
+                (match, ignoresList) => {
+                    // Split the ignores list and filter out any 'output' related entries
+                    let newIgnores = ignoresList
+                        .split(',')
+                        .map(item => item.trim())
+                        .filter(item => {
+                            // Remove empty items and any item containing 'output'
+                            return item && 
+                                   !item.includes("'output'") && 
+                                   !item.includes('"output"') &&
+                                   !item.includes("'output/") &&
+                                   !item.includes('"output/');
+                        })
+                        .join(', ');
+                    
+                    return `ignores: [${newIgnores}]`;
+                }
+            );
+            
+            fs.writeFileSync(outputEslintConfig, content);
+            console.log('   ✅ Updated: eslint.config.js (removed output from ignores)');
+        }
+    }
+
     // Main execution
     async run() {
         console.log('🚀 Unified TypeScript to JavaScript Converter Started');
@@ -315,6 +348,9 @@ class UnifiedConverter {
 
         // Copy entire project structure first
         this.copyProjectStructure();
+        
+        // Update eslint.config.js in output to remove 'output' from ignores
+        this.updateOutputEslintConfig();
 
         this.createTempTsConfig();
 
@@ -353,6 +389,22 @@ class UnifiedConverter {
                 .replace(/resources\/js\/app\.tsx/g, 'resources/js/app.jsx')
                 .replace(/resources\/js\/ssr\.tsx/g, 'resources/js/ssr.jsx')
                 .replace(/^\s*\n/gm, '');
+
+            // Fix __dirname for ESM environment
+            if (content.includes('__dirname')) {
+                // Add necessary imports if not already present
+                if (!content.includes('fileURLToPath')) {
+                    content = content.replace(
+                        /(import\s+\{[^}]*\}\s+from\s+['"]node:path['"];?)/,
+                        '$1\nimport { fileURLToPath, URL } from \'node:url\';'
+                    );
+                }
+                // Replace __dirname with ESM equivalent
+                content = content.replace(
+                    /__dirname/g,
+                    'fileURLToPath(new URL(\'.\', import.meta.url))'
+                );
+            }
 
             fs.writeFileSync(outputViteConfigJs, content);
             fs.rmSync(outputViteConfigTs);
