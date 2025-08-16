@@ -37,7 +37,7 @@ export default function DeleteUser() {
                                 preserveScroll: true,
                             }}
                             onError={() => passwordInput.current?.focus()}
-                            onSubmitComplete={(form) => form.reset()}
+                            resetOnSuccess
                             className="space-y-6"
                         >
                             {({ resetAndClearErrors, processing, errors }) => (

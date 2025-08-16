@@ -14,7 +14,7 @@ export default function ConfirmPassword() {
         >
             <Head title="Confirm password" />
 
-            <Form method="post" action={route('password.confirm')} onSubmitComplete={(form) => form.reset('password')}>
+            <Form method="post" action={route('password.confirm')} resetOnSuccess={['password']}>
                 {({ processing, errors }) => (
                     <div className="space-y-6">
                         <div className="grid gap-2">

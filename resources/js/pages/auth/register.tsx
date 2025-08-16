@@ -15,7 +15,7 @@ export default function Register() {
             <Form
                 method="post"
                 action={route('register')}
-                onSubmitComplete={(form) => form.reset('password', 'password_confirmation')}
+                resetOnSuccess={['password', 'password_confirmation']}
                 disableWhileProcessing
                 className="flex flex-col gap-6"
             >

@@ -21,7 +21,7 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
                 method="post"
                 action={route('password.store')}
                 transform={(data) => ({ ...data, token, email })}
-                onSubmitComplete={(form) => form.reset('password', 'password_confirmation')}
+                resetOnSuccess={['password', 'password_confirmation']}
             >
                 {({ processing, errors }) => (
                     <div className="grid gap-6">
