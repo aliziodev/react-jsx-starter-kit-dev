@@ -87,6 +87,14 @@ jobs:
           exit 1
         }
 
+        # Reset workflow files to avoid permission issues
+        git reset HEAD -- .github/workflows/
+        git checkout -- .github/workflows/
+        
+        # Add changes excluding workflows
+        git add .
+        git commit -m "Sync with upstream (excluding workflows)" || echo "No changes to commit"
+
         # Push the sync branch
         git push origin $SYNC_BRANCH
 
@@ -101,7 +109,7 @@ jobs:
 
         COMMIT_SHA=$(git rev-parse HEAD)
         echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-        echo "✅ Successfully synced with upstream"
+        echo "✅ Successfully synced with upstream (workflows excluded)"
 
   convert-jsx:
     runs-on: ubuntu-latest
