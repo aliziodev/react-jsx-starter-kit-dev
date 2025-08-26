@@ -97,7 +97,16 @@ jobs:
 
         # Add changes excluding workflows
         git add .
-        git commit -m "Sync with upstream (excluding workflows)" || echo "No changes to commit"
+        
+        # Ensure no workflow files are staged
+        git reset HEAD -- .github/workflows/ 2>/dev/null || true
+        
+        # Check if there are any changes to commit
+        if git diff --cached --quiet; then
+          echo "No changes to commit after excluding workflows"
+        else
+          git commit -m "Sync with upstream (excluding workflows)"
+        fi
 
         # Push the sync branch
         git push origin $SYNC_BRANCH
