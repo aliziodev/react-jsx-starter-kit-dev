@@ -75,18 +75,17 @@ jobs:
         SYNC_BRANCH="sync-upstream-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $SYNC_BRANCH
 
-        # Pastikan workflow lokal tetap dipakai
-        git checkout main -- .github/workflows || true
-        git add .github/workflows
-
-        # Merge upstream pakai strategi ours untuk workflows
-        git merge -X ours upstream/main --no-edit || {
+        # Merge upstream
+        git merge upstream/main --no-edit || {
           echo "❌ Merge conflicts detected. Manual intervention required."
           git merge --abort
           exit 1
         }
 
-        # Tambahkan semua perubahan kecuali workflows
+        # Hapus semua perubahan workflows dari hasil merge
+        git checkout HEAD -- .github/workflows
+
+        # Stage semua file kecuali workflows
         git add .
         git reset HEAD -- .github/workflows || true
 
