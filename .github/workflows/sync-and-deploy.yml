@@ -20,7 +20,8 @@ on:
     paths-ignore:
       - 'README.md'
       - 'docs/**'
-      - '.github/workflows/**'
+      - '.github/workflows/lint.yml'
+      - '.github/workflows/tests.yml'
 
 env:
   UPSTREAM_REPO: 'laravel/react-starter-kit'
@@ -90,7 +91,7 @@ jobs:
         # Reset workflow files to avoid permission issues
         git reset HEAD -- .github/workflows/
         git checkout -- .github/workflows/
-        
+
         # Add changes excluding workflows
         git add .
         git commit -m "Sync with upstream (excluding workflows)" || echo "No changes to commit"
