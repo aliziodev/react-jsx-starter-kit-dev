@@ -22,7 +22,6 @@ on:
       - 'docs/**'
       - '.github/workflows/lint.yml'
       - '.github/workflows/tests.yml'
-      - '.github/workflows/sync-and-deploy.yml'
 
 env:
   UPSTREAM_REPO: 'laravel/react-starter-kit'
