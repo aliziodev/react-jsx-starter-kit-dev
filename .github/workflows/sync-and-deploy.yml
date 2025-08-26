@@ -66,7 +66,7 @@ jobs:
           echo "ℹ️ No new changes from upstream"
         fi
 
-        - name: Sync with upstream
+    - name: Sync with upstream
       id: sync
       if: steps.check_changes.outputs.has_changes == 'true'
       run: |
@@ -75,32 +75,36 @@ jobs:
         SYNC_BRANCH="sync-upstream-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $SYNC_BRANCH
 
-        # Merge upstream tapi jangan langsung commit
+        # Merge upstream tanpa commit otomatis
         git merge --no-commit --no-ff upstream/main || {
           echo "❌ Merge conflicts detected. Manual intervention required."
           git merge --abort
           exit 1
         }
 
-        # Kembalikan workflows ke versi branch main (lokal)
-        git checkout main -- .github/workflows
+        # Kembalikan workflows ke versi main (lokal) supaya tidak ikut tercatat
+        git checkout main -- .github/workflows || true
 
         # Stage semua perubahan kecuali workflows
         git add .
         git reset HEAD -- .github/workflows || true
 
+        # Commit hasil merge
         if git diff --cached --quiet; then
           echo "No changes to commit after excluding workflows"
         else
           git commit -m "Sync with upstream (workflows excluded)"
         fi
 
+        # Push branch sync
         git push origin $SYNC_BRANCH
 
+        # Merge ke main
         git checkout main
         git merge $SYNC_BRANCH --no-edit
         git push origin main
 
+        # Cleanup branch sync
         git branch -d $SYNC_BRANCH
         git push origin --delete $SYNC_BRANCH
 
