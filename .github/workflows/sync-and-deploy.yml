@@ -94,6 +94,7 @@ jobs:
 
         # Add changes excluding workflows
         git add .
+        git reset HEAD -- .github/workflows/
         git commit -m "Sync with upstream (excluding workflows)" || echo "No changes to commit"
 
         # Push the sync branch
