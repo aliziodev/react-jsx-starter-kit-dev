@@ -88,13 +88,15 @@ jobs:
           exit 1
         }
 
-        # Reset workflow files to avoid permission issues
-        git reset HEAD -- .github/workflows/
-        git checkout -- .github/workflows/
+        # Remove any new workflow files from upstream to avoid permission issues
+        git rm --cached .github/workflows/* 2>/dev/null || true
+        git checkout HEAD -- .github/workflows/
+        
+        # Ensure we keep only our local workflow files
+        git clean -fd .github/workflows/
 
         # Add changes excluding workflows
         git add .
-        git reset HEAD -- .github/workflows/
         git commit -m "Sync with upstream (excluding workflows)" || echo "No changes to commit"
 
         # Push the sync branch
