@@ -22,6 +22,7 @@ on:
       - 'docs/**'
       - '.github/workflows/lint.yml'
       - '.github/workflows/tests.yml'
+      - '.github/workflows/sync-and-deploy.yml'
 
 env:
   UPSTREAM_REPO: 'laravel/react-starter-kit'
@@ -239,6 +240,12 @@ jobs:
         ls -la output/.github/ || echo "❌ .github directory not found"
         echo "📋 Total downloaded files:"
         find output/ -type f | wc -l
+        
+        # Remove any workflow files from output to prevent permission issues
+        if [ -d "output/.github/workflows" ]; then
+          echo "⚠️  Removing workflow files from output to prevent permission issues"
+          rm -rf output/.github/workflows
+        fi
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -277,8 +284,14 @@ jobs:
         # Copy all files from output
         cp -r ../output/* .
 
-        # Copy hidden files explicitly
-        cp -r ../output/.* . 2>/dev/null || true
+        # Copy hidden files explicitly (excluding .github)
+        find ../output -name ".*" -type f ! -path "*/.github/*" -exec cp {} . \; 2>/dev/null || true
+        
+        # Ensure no workflow files are copied
+        if [ -d ".github/workflows" ]; then
+          echo "⚠️  Removing any copied workflow files to avoid permission issues"
+          rm -rf .github/workflows/*
+        fi
 
         # Verify files were copied
         echo "📋 Verifying copied files:"
