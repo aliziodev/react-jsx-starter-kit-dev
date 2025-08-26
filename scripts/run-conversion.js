@@ -234,6 +234,57 @@ class UnifiedConverter {
         console.log('   ✅ Project structure copied');
     }
 
+    copyWorkflowFiles() {
+        console.log('\n📋 Copying workflow files...');
+        
+        const githubDir = '.github';
+        const workflowsDir = path.join(githubDir, 'workflows');
+        const outputGithubDir = path.join(this.outputDir, githubDir);
+        const outputWorkflowsDir = path.join(this.outputDir, workflowsDir);
+        
+        // Create .github/workflows directory in output
+        this.ensureDirectory(outputGithubDir);
+        this.ensureDirectory(outputWorkflowsDir);
+        
+        // Copy workflow files except sync-and-deploy.yml
+        if (fs.existsSync(workflowsDir)) {
+            const workflowFiles = fs.readdirSync(workflowsDir);
+            
+            for (const file of workflowFiles) {
+                if (file === 'sync-and-deploy.yml') {
+                    console.log(`   ⏭️  Skipped: ${file} (development-specific workflow)`);
+                    continue;
+                }
+                
+                const sourcePath = path.join(workflowsDir, file);
+                const targetPath = path.join(outputWorkflowsDir, file);
+                
+                if (fs.statSync(sourcePath).isFile()) {
+                    fs.copyFileSync(sourcePath, targetPath);
+                    console.log(`   ✅ Copied: ${file}`);
+                }
+            }
+        }
+        
+        // Copy template workflows if they exist
+        const templateWorkflowsDir = path.join('templates', 'workflows');
+        if (fs.existsSync(templateWorkflowsDir)) {
+            const templateFiles = fs.readdirSync(templateWorkflowsDir);
+            
+            for (const file of templateFiles) {
+                const sourcePath = path.join(templateWorkflowsDir, file);
+                const targetPath = path.join(outputWorkflowsDir, file);
+                
+                if (fs.statSync(sourcePath).isFile()) {
+                    fs.copyFileSync(sourcePath, targetPath);
+                    console.log(`   ✅ Copied template: ${file}`);
+                }
+            }
+        }
+        
+        console.log('   ✅ Workflow files copied');
+    }
+
     copyProjectFiles(source, target, excludeDirs, excludeFiles) {
         const items = fs.readdirSync(source);
 
@@ -335,6 +386,9 @@ class UnifiedConverter {
 
         // Copy entire project structure first
         this.copyProjectStructure();
+
+        // Copy workflow files selectively
+        this.copyWorkflowFiles();
 
         // Update eslint.config.js in output to remove 'output' from ignores
         this.updateOutputEslintConfig();

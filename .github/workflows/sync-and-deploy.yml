@@ -111,3 +111,104 @@ jobs:
         COMMIT_SHA=$(git rev-parse HEAD)
         echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
         echo "✅ Successfully synced with upstream (workflows excluded)"
+
+  deploy-template:
+    needs: sync-upstream
+    if: needs.sync-upstream.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout updated repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run JSX conversion
+      run: |
+        echo "🔄 Converting TSX to JSX..."
+        node scripts/run-conversion.js
+        echo "✅ Conversion completed"
+
+    - name: Prepare template repository
+      run: |
+        echo "📦 Preparing template files..."
+        
+        # Create output directory
+        mkdir -p output
+        
+        # Copy all files except specific directories and files
+        rsync -av --progress . output/ \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='vendor' \
+          --exclude='storage/logs' \
+          --exclude='storage/framework/cache' \
+          --exclude='storage/framework/sessions' \
+          --exclude='storage/framework/views' \
+          --exclude='bootstrap/cache' \
+          --exclude='.env' \
+          --exclude='output'
+        
+        # Remove only sync-and-deploy.yml from workflows
+         rm -f output/.github/workflows/sync-and-deploy.yml
+         
+         # Copy template workflows if they exist
+         if [ -d "templates/workflows" ]; then
+           cp templates/workflows/* output/.github/workflows/
+         fi
+        
+        echo "✅ Template files prepared"
+
+    - name: Deploy to template repository
+      run: |
+        echo "🚀 Deploying to template repository..."
+        
+        cd output
+        
+        # Initialize git if not exists
+        if [ ! -d ".git" ]; then
+          git init
+        fi
+        
+        # Configure git
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Add template repository as remote
+        git remote add template https://x-access-token:${{ secrets.TEMPLATE_REPO_TOKEN }}@github.com/${{ env.TEMPLATE_REPO }}.git || true
+        
+        # Fetch template repository
+        git fetch template || true
+        
+        # Create or switch to main branch
+        git checkout -B main
+        
+        # Add all files
+        git add .
+        
+        # Check if there are changes to commit
+        if git diff --cached --quiet; then
+          echo "ℹ️ No changes to deploy"
+        else
+          # Commit changes
+          git commit -m "Auto-update template from dev repository
+          
+          Source commit: ${{ needs.sync-upstream.outputs.commit_sha }}
+          Triggered by: ${{ github.event_name }}"
+          
+          # Push to template repository
+          git push template main --force
+          
+          echo "✅ Successfully deployed to template repository"
+        fi
