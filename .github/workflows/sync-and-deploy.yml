@@ -81,6 +81,10 @@ jobs:
         SYNC_BRANCH="sync-upstream-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $SYNC_BRANCH
 
+        # Backup current workflow files before merge
+        mkdir -p /tmp/backup-workflows
+        cp -r .github/workflows/* /tmp/backup-workflows/ 2>/dev/null || true
+
         # Merge upstream changes
         git merge upstream/main --no-edit || {
           echo "❌ Merge conflicts detected. Manual intervention required."
@@ -88,24 +92,27 @@ jobs:
           exit 1
         }
 
-        # Remove any new workflow files from upstream to avoid permission issues
-        git rm --cached .github/workflows/* 2>/dev/null || true
-        git checkout HEAD -- .github/workflows/
+        # Completely ignore any workflow changes from upstream
+        # Remove all workflow files that came from upstream
+        rm -rf .github/workflows/*
         
-        # Ensure we keep only our local workflow files
-        git clean -fd .github/workflows/
+        # Restore our local workflow files
+        cp -r /tmp/backup-workflows/* .github/workflows/ 2>/dev/null || true
+        
+        # Clean up backup
+        rm -rf /tmp/backup-workflows
 
-        # Add changes excluding workflows
+        # Add changes excluding workflows completely
         git add .
         
-        # Ensure no workflow files are staged
+        # Ensure absolutely no workflow files are staged
         git reset HEAD -- .github/workflows/ 2>/dev/null || true
         
         # Check if there are any changes to commit
         if git diff --cached --quiet; then
           echo "No changes to commit after excluding workflows"
         else
-          git commit -m "Sync with upstream (excluding workflows)"
+          git commit -m "Sync with upstream (workflows completely excluded)"
         fi
 
         # Push the sync branch
