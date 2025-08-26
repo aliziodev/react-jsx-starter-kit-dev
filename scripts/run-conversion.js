@@ -225,34 +225,11 @@ class UnifiedConverter {
 
         this.copyProjectFiles('.', this.outputDir, excludeDirs, excludeFiles);
 
-        // Handle .github/workflows specially - copy specific workflows
-        const workflowsSource = path.resolve('.github/workflows');
-        const workflowsTarget = path.join(this.outputDir, '.github/workflows');
+        // Skip copying .github/workflows to avoid permission issues
+        console.log('   ⏭️  Skipped: .github/workflows (to avoid GitHub permission issues)');
 
-        if (fs.existsSync(workflowsSource)) {
-            this.ensureDirectory(workflowsTarget);
-
-            const allowedWorkflows = ['lint.yml', 'tests.yml'];
-            for (const workflow of allowedWorkflows) {
-                const sourceFile = path.join(workflowsSource, workflow);
-                const targetFile = path.join(workflowsTarget, workflow);
-
-                if (fs.existsSync(sourceFile)) {
-                    fs.copyFileSync(sourceFile, targetFile);
-                    console.log(`   ✅ Copied: .github/workflows/${workflow}`);
-                }
-            }
-        }
-
-        // Copy auto-release.yml from templates to output
-        const templateWorkflowSource = path.resolve('templates/workflows/auto-release.yml');
-        const templateWorkflowTarget = path.join(workflowsTarget, 'auto-release.yml');
-
-        if (fs.existsSync(templateWorkflowSource)) {
-            this.ensureDirectory(workflowsTarget);
-            fs.copyFileSync(templateWorkflowSource, templateWorkflowTarget);
-            console.log('   ✅ Copied: .github/workflows/auto-release.yml (from template)');
-        }
+        // Skip copying auto-release.yml to avoid permission issues
+        console.log('   ⏭️  Skipped: auto-release.yml (to avoid GitHub permission issues)');
 
         console.log('   ✅ Project structure copied');
     }
@@ -406,14 +383,11 @@ class UnifiedConverter {
                 if (!content.includes('fileURLToPath')) {
                     content = content.replace(
                         /(import\s+\{[^}]*\}\s+from\s+['"]node:path['"];?)/,
-                        '$1\nimport { fileURLToPath, URL } from \'node:url\';'
+                        "$1\nimport { fileURLToPath, URL } from 'node:url';",
                     );
                 }
                 // Replace __dirname with ESM equivalent
-                content = content.replace(
-                    /__dirname/g,
-                    'fileURLToPath(new URL(\'.\', import.meta.url))'
-                );
+                content = content.replace(/__dirname/g, "fileURLToPath(new URL('.', import.meta.url))");
             }
 
             fs.writeFileSync(outputViteConfigJs, content);
@@ -435,14 +409,33 @@ class UnifiedConverter {
             console.log('   ✅ Updated: resources/views/app.blade.php');
         }
 
-        // Remove TypeScript config files from output
-        const tsConfigFiles = ['tsconfig.json', 'tsconfig.node.json'];
-        for (const file of tsConfigFiles) {
-            const filePath = path.join(this.outputDir, file);
-            if (fs.existsSync(filePath)) {
-                fs.rmSync(filePath);
-                console.log(`   🗑️  Removed: ${file}`);
+        // Update tsconfig.json to support JSX
+        const tsConfigPath = path.join(this.outputDir, 'tsconfig.json');
+        if (fs.existsSync(tsConfigPath)) {
+            try {
+                let tsConfigContent = fs.readFileSync(tsConfigPath, 'utf8');
+
+                // Simple string replacement approach to avoid JSON parsing issues
+                // Replace TypeScript patterns with JavaScript/JSX patterns in include section
+                tsConfigContent = tsConfigContent
+                    .replace(/"resources\/js\/\*\*\/\*\.ts"/g, '"resources/js/**/*.js"')
+                    .replace(/"resources\/js\/\*\*\/\*\.tsx"/g, '"resources/js/**/*.jsx"')
+                    .replace(/resources\/js\/\*\*\/\*\.ts/g, 'resources/js/**/*.js')
+                    .replace(/resources\/js\/\*\*\/\*\.tsx/g, 'resources/js/**/*.jsx');
+
+                fs.writeFileSync(tsConfigPath, tsConfigContent);
+                console.log('   ✅ Updated: tsconfig.json for JSX support');
+            } catch (error) {
+                console.error(`   ❌ Error updating tsconfig.json: ${error.message}`);
+                console.log('   ⚠️  Skipping tsconfig.json update due to file error');
             }
+        }
+
+        // Remove tsconfig.node.json if exists
+        const tsConfigNodePath = path.join(this.outputDir, 'tsconfig.node.json');
+        if (fs.existsSync(tsConfigNodePath)) {
+            fs.rmSync(tsConfigNodePath);
+            console.log('   🗑️  Removed: tsconfig.node.json');
         }
 
         // Remove types directory from output
