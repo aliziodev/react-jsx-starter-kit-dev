@@ -1,3 +1,4 @@
+import { update } from '@/actions/App/Http/Controllers/Settings/PasswordController';
 import InputError from '@/components/input-error';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
@@ -10,11 +11,12 @@ import HeadingSmall from '@/components/heading-small';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { edit } from '@/routes/password';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Password settings',
-        href: '/settings/password',
+        href: edit().url,
     },
 ];
 
@@ -31,8 +33,7 @@ export default function Password() {
                     <HeadingSmall title="Update password" description="Ensure your account is using a long, random password to stay secure" />
 
                     <Form
-                        method="put"
-                        action={route('password.update')}
+                        {...update.form()}
                         options={{
                             preserveScroll: true,
                         }}

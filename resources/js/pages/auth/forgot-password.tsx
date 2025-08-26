@@ -1,4 +1,6 @@
 // Components
+import { store } from '@/actions/App/Http/Controllers/Auth/PasswordResetLinkController';
+import { login } from '@/routes';
 import { Form, Head } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 
@@ -17,7 +19,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
             {status && <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>}
 
             <div className="space-y-6">
-                <Form method="post" action={route('password.email')}>
+                <Form {...store.form()}>
                     {({ processing, errors }) => (
                         <>
                             <div className="grid gap-2">
@@ -39,7 +41,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
                 <div className="space-x-1 text-center text-sm text-muted-foreground">
                     <span>Or, return to</span>
-                    <TextLink href={route('login')}>log in</TextLink>
+                    <TextLink href={login()}>log in</TextLink>
                 </div>
             </div>
         </AuthLayout>

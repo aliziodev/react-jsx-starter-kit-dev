@@ -1,3 +1,4 @@
+import { store } from '@/actions/App/Http/Controllers/Auth/NewPasswordController';
 import { Form, Head } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 
@@ -17,12 +18,7 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
         <AuthLayout title="Reset password" description="Please enter your new password below">
             <Head title="Reset password" />
 
-            <Form
-                method="post"
-                action={route('password.store')}
-                transform={(data) => ({ ...data, token, email })}
-                resetOnSuccess={['password', 'password_confirmation']}
-            >
+            <Form {...store.form()} transform={(data) => ({ ...data, token, email })} resetOnSuccess={['password', 'password_confirmation']}>
                 {({ processing, errors }) => (
                     <div className="grid gap-6">
                         <div className="grid gap-2">
