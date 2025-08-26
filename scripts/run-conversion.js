@@ -187,7 +187,7 @@ class UnifiedConverter {
 
         content = content.replace(
             /@vite\(\['resources\/js\/app\.tsx',\s*"resources\/js\/pages\/\{\$page\['component'\]\}\.tsx"\]\)/g,
-            "@vite(['output/js/app.jsx', \"output/js/pages/{$page['component']}.jsx\"])",
+            "@vite(['resources/js/app.jsx', \"resources/js/pages/{$page['component']}.jsx\"])",
         );
 
         fs.writeFileSync(outputFile, content);

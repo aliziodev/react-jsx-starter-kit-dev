@@ -140,35 +140,26 @@ jobs:
         node scripts/run-conversion.js
         echo "✅ Conversion completed"
 
-    - name: Prepare template repository
+    - name: Verify conversion output
       run: |
-        echo "📦 Preparing template files..."
+        echo "📦 Verifying conversion output..."
         
-        # Create output directory
-        mkdir -p output
+        # Check if output directory exists (created by run-conversion.js)
+        if [ ! -d "output" ]; then
+          echo "❌ Output directory not found. Conversion may have failed."
+          exit 1
+        fi
         
-        # Copy all files except specific directories and files
-        rsync -av --progress . output/ \
-          --exclude='.git' \
-          --exclude='node_modules' \
-          --exclude='vendor' \
-          --exclude='storage/logs' \
-          --exclude='storage/framework/cache' \
-          --exclude='storage/framework/sessions' \
-          --exclude='storage/framework/views' \
-          --exclude='bootstrap/cache' \
-          --exclude='.env' \
-          --exclude='output'
+        # List some key files to verify conversion
+        echo "📋 Key files in output:"
+        ls -la output/ | head -10
         
-        # Remove only sync-and-deploy.yml from workflows
-         rm -f output/.github/workflows/sync-and-deploy.yml
-         
-         # Copy template workflows if they exist
-         if [ -d "templates/workflows" ]; then
-           cp templates/workflows/* output/.github/workflows/
-         fi
+        if [ -d "output/resources/js" ]; then
+          echo "📋 JavaScript files:"
+          find output/resources/js -name "*.jsx" | head -5
+        fi
         
-        echo "✅ Template files prepared"
+        echo "✅ Conversion output verified"
 
     - name: Deploy to template repository
       run: |
